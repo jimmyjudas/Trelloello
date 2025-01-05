@@ -41,10 +41,9 @@ public class TrelloelloApplication implements CommandLineRunner {
 		//it. Finding it once and then hardcoding it into the constant allows you to reduce the number
 		//of calls the applications needs to make each time it runs
 
-		String username = ""; //Your Trello account email address
-		String boardName = ""; //If you're a member of more than one board, the name of the exact board you want the ID for
+		String boardName = "TARS"; //If you're a member of more than one board, the name of the exact board you want the ID for
 
-		List<Board> boards = trelloApi.getMemberBoards(username);
+		List<Board> boards = trelloApi.getMemberInformation().getBoards();
 		String boardId = boards.stream().filter(b -> StringUtils.isBlank(boardName) || b.getName().equals(boardName))
 				.findFirst().orElseThrow(Exception::new).getId();
 		*/
