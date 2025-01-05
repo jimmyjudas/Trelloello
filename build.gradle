@@ -22,7 +22,6 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-
 	implementation 'io.github.proteus1121:trello-java-wrapper:0.15.4'
 }
 
