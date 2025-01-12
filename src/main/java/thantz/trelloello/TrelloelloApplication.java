@@ -68,13 +68,17 @@ public class TrelloelloApplication implements CommandLineRunner {
 
 	private void HandleCardsPastStartDate(TList firstList, TList holdingList)
 	{
-		Date startOfToday = DateTimeHelpers.localDateTimeToDate(LocalDate.now().atStartOfDay());
+		//Trello doesn't officially support start times, but cards' start dates seem to include a
+		//time, though we can't be sure what that time will be. Therefore, take the end of the day
+		//here so when we're working out if we're past the start date, the start time given by
+		//Trello is effectively ignored - instead, we use the start time stored in the title later
+		Date today = DateTimeHelpers.localDateTimeToDate(LocalDate.now().atTime(LocalTime.MAX));
 
 		List<Card> cardsPastStartDate = holdingList.fetchCards().stream()
 				.filter(card ->
 						!card.getName().equals(TEMPLATE_CARD_NAME)
-						& (card.getStart() == null
-						   || !card.getStart().before(startOfToday))).toList(); //!before means either equal or after
+						& (card.getStart() == null || today.after(card.getStart()))
+				).toList();
 
 		for (Card card : cardsPastStartDate) {
 			LocalTime startTime = CardNameWithTime.getTime(card.getName());
