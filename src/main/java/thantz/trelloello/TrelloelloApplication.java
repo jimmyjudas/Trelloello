@@ -61,12 +61,12 @@ public class TrelloelloApplication implements CommandLineRunner {
 		TList holdingList = lists.stream().filter(l -> l.getName().equals(HOLDING_LIST_NAME)).findFirst()
 				.orElseThrow(Exception::new);
 
-		HandleCardsPastStartDate(lists.getFirst(), holdingList);
+		handleCardsPastStartDate(lists.getFirst(), holdingList);
 
-		HandleArchivedRepeatingCards(board, holdingList);
+		handleArchivedRepeatingCards(board, holdingList);
 	}
 
-	private void HandleCardsPastStartDate(TList firstList, TList holdingList)
+	private void handleCardsPastStartDate(TList firstList, TList holdingList)
 	{
 		//Trello doesn't officially support start times, but cards' start dates seem to include a
 		//time, though we can't be sure what that time will be. Therefore, take the end of the day
@@ -92,7 +92,7 @@ public class TrelloelloApplication implements CommandLineRunner {
 		}
 	}
 
-	private void HandleArchivedRepeatingCards(Board board, TList holdingList) throws Exception {
+	private void handleArchivedRepeatingCards(Board board, TList holdingList) throws Exception {
 		List<Card> archivedRepeatingCards = board.fetchFilteredCards(CardState.CLOSED).stream()
 				.filter(c -> c.getLabels().stream()
 						.anyMatch(label -> label.getName().equals(LABEL_NAME))).toList();
