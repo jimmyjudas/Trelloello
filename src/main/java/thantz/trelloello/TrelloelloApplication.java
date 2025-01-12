@@ -5,11 +5,11 @@ import com.julienvey.trello.domain.*;
 import com.julienvey.trello.impl.TrelloImpl;
 import com.julienvey.trello.impl.domaininternal.CardState;
 import com.julienvey.trello.impl.http.ApacheHttpClient;
+import net.time4j.Duration;
+import net.time4j.IsoUnit;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.format.annotation.DurationFormat;
-import org.springframework.format.datetime.standard.DurationFormatterUtils;
 
 import java.time.*;
 import java.util.Date;
@@ -110,15 +110,15 @@ public class TrelloelloApplication implements CommandLineRunner {
 				LocalDateTime nextStartDateTime;
 
 				String durationString = matcher.group(1);
-				Duration duration;
+				Duration<IsoUnit> duration;
 				try {
-					duration = DurationFormatterUtils.parse(durationString, DurationFormat.Style.ISO8601);
+					duration = Duration.parsePeriod(durationString);
 				}
 				catch (Exception e) {
 					throw new RuntimeException(String.format("Can't parse duration %s for card %s", durationString, card.getName()));
 				}
 
-				nextStartDateTime = LocalDateTime.now().plus(duration).with(LocalTime.MIN);
+				nextStartDateTime = LocalDateTime.now().plus(duration.toTemporalAmount()).with(LocalTime.MIN);
 
 				LocalTime startTime = null;
 				String timeString = matcher.group(2);
