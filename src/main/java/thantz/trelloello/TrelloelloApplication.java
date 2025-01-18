@@ -12,7 +12,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.time.*;
-import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -61,38 +60,31 @@ public class TrelloelloApplication implements CommandLineRunner {
 		TList holdingList = lists.stream().filter(l -> l.getName().equals(HOLDING_LIST_NAME)).findFirst()
 				.orElseThrow(Exception::new);
 
-		handleCardsPastStartDate(lists.getFirst(), holdingList);
+		reopenHeldCardsPastStartDate(lists.getFirst(), holdingList);
 
-		handleArchivedRepeatingCards(board, holdingList);
+		holdArchivedRepeatingCards(board, holdingList);
+
 	}
 
-	private void handleCardsPastStartDate(TList firstList, TList holdingList)
-	{
-		//Trello doesn't officially support start times, but cards' start dates seem to include a
-		//time, though we can't be sure what that time will be. Therefore, take the end of the day
-		//here so when we're working out if we're past the start date, the start time given by
-		//Trello is effectively ignored - instead, we use the start time stored in the title later
-		Date today = DateTimeHelpers.localDateTimeToDate(LocalDate.now().atTime(LocalTime.MAX));
-
+	/// Find cards in the holding column that are past their start date and move them
+	/// into the active column
+	private void reopenHeldCardsPastStartDate(TList firstList, TList holdingList) {
 		List<Card> cardsPastStartDate = holdingList.fetchCards().stream()
 				.filter(card ->
 						!card.getName().equals(TEMPLATE_CARD_NAME)
-						& (card.getStart() == null || today.after(card.getStart()))
+						& Helpers.pastCardStartDate(card)
 				).toList();
 
 		for (Card card : cardsPastStartDate) {
-			LocalTime startTime = CardNameWithTime.getTime(card.getName());
-			if (startTime != null && startTime.isAfter(LocalTime.now())) {
-				continue; //Card isn't past start time yet
-			}
-
 			card.setIdList(firstList.getId());
 			card.setPos(0);
 			card.update();
 		}
 	}
 
-	private void handleArchivedRepeatingCards(Board board, TList holdingList) throws Exception {
+	/// Find repeating cards that have been archived, unarchive them and move them
+	/// to the holding column
+	private void holdArchivedRepeatingCards(Board board, TList holdingList) throws Exception {
 		List<Card> archivedRepeatingCards = board.fetchFilteredCards(CardState.CLOSED).stream()
 				.filter(c -> c.getLabels().stream()
 						.anyMatch(label -> label.getName().equals(LABEL_NAME))).toList();
@@ -134,7 +126,7 @@ public class TrelloelloApplication implements CommandLineRunner {
 				card.setName(CardNameWithTime.getNewName(card.getName(), startTime)); //Trello has no concept of start time, so store it in the title
 				card.setClosed(false); //Unarchive
 				card.setIdList(holdingList.getId()); //Move to Holding List
-				card.setStart(DateTimeHelpers.localDateTimeToDate(nextStartDateTime));
+				card.setStart(Helpers.localDateTimeToDate(nextStartDateTime));
 
 				if (startTime != null) {
 					nextStartDateTime = nextStartDateTime.with(startTime);

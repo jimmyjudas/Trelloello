@@ -9,9 +9,14 @@ public class CardNameWithTime {
     private LocalTime time = null;
 
     private CardNameWithTime(String nameString) {
+        if (nameString == null) {
+            name = null;
+            return;
+        }
+
         //Search for titles containing a time in, e.g:
-        //  This is a title without a time
-        //  This title has a time {14:00}
+        //  "This is a title without a time"
+        //  "This title has a time {14:00}"
         String regexPattern = "(.*)\\{(\\d{1,2}:\\d{2})}";
 
         Pattern pattern = Pattern.compile(regexPattern);
