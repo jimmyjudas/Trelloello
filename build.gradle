@@ -1,4 +1,5 @@
 plugins {
+	id 'com.gradleup.shadow' version '9.0.0-beta4'
 	id 'java'
 	id 'org.springframework.boot' version '3.4.1'
 	id 'io.spring.dependency-management' version '1.1.7'
@@ -9,7 +10,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(23)
+		languageVersion = JavaLanguageVersion.of(21)
 	}
 }
 
@@ -24,6 +25,8 @@ dependencies {
 
 	implementation 'io.github.proteus1121:trello-java-wrapper:0.15.4'
 	implementation 'net.time4j:time4j-base:5.9.4'
+
+	implementation 'com.amazonaws:aws-lambda-java-core:1.2.3'
 }
 
 tasks.named('test') {

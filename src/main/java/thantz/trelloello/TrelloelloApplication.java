@@ -1,5 +1,6 @@
 package thantz.trelloello;
 
+import com.amazonaws.services.lambda.runtime.Context;
 import com.julienvey.trello.Trello;
 import com.julienvey.trello.domain.*;
 import com.julienvey.trello.impl.TrelloImpl;
@@ -33,12 +34,24 @@ public class TrelloelloApplication implements CommandLineRunner {
 	private final String TEMPLATE_CARD_NAME = "Template";
 	/*****************************/
 
+	/*** Local command line entry points ***/
 	public static void main(String[] args) {
 		SpringApplication.run(TrelloelloApplication.class, args);
 	}
 
 	@Override
-	public void run(String... args) throws Exception {
+	public void run(String... args) {
+		processTrelloCards();
+	}
+	/***************************************/
+
+	/******* AWS Lambda entry point *******/
+	public void handleRequest(Object o, Context context) {
+		processTrelloCards();
+	}
+	/**************************************/
+
+	public void processTrelloCards() {
 		Trello trelloApi = new TrelloImpl(TRELLO_API_KEY, TRELLO_SERVER_TOKEN, new ApacheHttpClient());
 
 		/*
@@ -58,11 +71,11 @@ public class TrelloelloApplication implements CommandLineRunner {
 
 		List<Label> labels = board.fetchLabels();
 		Label label = labels.stream().filter(l -> l.getName().equals(LABEL_NAME)).findFirst()
-				.orElseThrow(Exception::new);
+				.orElseThrow(RuntimeException::new);
 
 		List<TList> lists = board.fetchLists();
 		TList holdingList = lists.stream().filter(l -> l.getName().equals(HOLDING_LIST_NAME)).findFirst()
-				.orElseThrow(Exception::new);
+				.orElseThrow(RuntimeException::new);
 
 		reopenHeldCardsPastStartDate(lists.getFirst(), holdingList);
 
@@ -77,7 +90,7 @@ public class TrelloelloApplication implements CommandLineRunner {
 		List<Card> cardsPastStartDate = holdingList.fetchCards().stream()
 				.filter(card ->
 						!card.getName().equals(TEMPLATE_CARD_NAME)
-						& Helpers.pastCardStartDate(card)
+						&& Helpers.pastCardStartDate(card)
 				).toList();
 
 		for (Card card : cardsPastStartDate) {
@@ -89,12 +102,12 @@ public class TrelloelloApplication implements CommandLineRunner {
 
 	/// Find repeating cards that have been archived, unarchive them and move them
 	/// to the holding column
-	private void holdArchivedRepeatingCards(Board board, TList holdingList) throws Exception {
-		List<Card> archivedRepeatingCards = board.fetchFilteredCards(CardState.CLOSED).stream()
+	private void holdArchivedRepeatingCards(Board board, TList holdingList) {
+		List<Card> archivedLabelledCards = board.fetchFilteredCards(CardState.CLOSED).stream()
 				.filter(c -> c.getLabels().stream()
 						.anyMatch(label -> label.getName().equals(LABEL_NAME))).toList();
 
-		for (Card card : archivedRepeatingCards) {
+		for (Card card : archivedLabelledCards) {
 			//The string we're looking for is an ISO 8601 duration, followed by a time, e.g:
 			//	{P3D 18:00}
 			//	{P1WT1M 5:21}
@@ -103,7 +116,7 @@ public class TrelloelloApplication implements CommandLineRunner {
 
 			Pattern pattern = Pattern.compile(regexPattern);
 			Matcher matcher = pattern.matcher(card.getDesc());
-			if (matcher.find()) { //If we find a match, the card is meant to be recurring
+			if (matcher.find()) { //If we find a match, the card is meant to be repeating
 				LocalDateTime nextStartDateTime;
 
 				String durationString = matcher.group(1);
@@ -132,14 +145,13 @@ public class TrelloelloApplication implements CommandLineRunner {
 				card.setClosed(false); //Unarchive
 				card.setIdList(holdingList.getId()); //Move to Holding List
 				card.setStart(Helpers.localDateTimeToDate(nextStartDateTime));
+				card.update();
 
 				if (startTime != null) {
 					nextStartDateTime = nextStartDateTime.with(startTime);
 				}
 				System.out.printf("Unarchived card %s. New start = %s from %s%n", card.getName(), nextStartDateTime, matcher.group());
 			}
-
-			card.update();
 		}
 	}
 
