@@ -1,6 +1,7 @@
 package thantz.trelloello;
 
 import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.julienvey.trello.Trello;
 import com.julienvey.trello.domain.*;
 import com.julienvey.trello.impl.TrelloImpl;
@@ -13,7 +14,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.time.*;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,6 +37,8 @@ public class TrelloelloApplication implements CommandLineRunner {
 	private final String TEMPLATE_CARD_NAME = "Template";
 	/*****************************/
 
+	private MyLogger logger;
+
 	/*** Local command line entry points ***/
 	public static void main(String[] args) {
 		SpringApplication.run(TrelloelloApplication.class, args);
@@ -41,17 +46,24 @@ public class TrelloelloApplication implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) {
+		Logger javaLogger = Logger.getLogger(TrelloelloApplication.class.getName());
+		logger = (message, messageArgs) -> javaLogger.info(String.format(message, messageArgs));
 		processTrelloCards();
 	}
 	/***************************************/
 
 	/******* AWS Lambda entry point *******/
 	public void handleRequest(Object o, Context context) {
+		LambdaLogger lambdaLogger = context.getLogger();
+		logger = (message, args) -> lambdaLogger.log(String.format(message, args));
 		processTrelloCards();
 	}
 	/**************************************/
 
 	public void processTrelloCards() {
+		Instant startTime = Instant.now();
+		logger.log(String.format("Trelloello starting at %s", Helpers.PrettyFormat(startTime)));
+
 		Trello trelloApi = new TrelloImpl(TRELLO_API_KEY, TRELLO_SERVER_TOKEN, new ApacheHttpClient());
 
 		/*
@@ -82,6 +94,11 @@ public class TrelloelloApplication implements CommandLineRunner {
 		holdArchivedRepeatingCards(board, holdingList);
 
 		holdCardsWithStartDateInFuture(board, holdingList, label);
+
+		Instant endTime = Instant.now();
+		logger.log(String.format("Trelloello ending at %s. Took %s millisecs",
+				Helpers.PrettyFormat(startTime),
+				ChronoUnit.MILLIS.between(startTime,endTime)));
 	}
 
 	/// Find cards in the holding column that are past their start date and move them
@@ -93,10 +110,19 @@ public class TrelloelloApplication implements CommandLineRunner {
 						&& Helpers.pastCardStartDate(card)
 				).toList();
 
-		for (Card card : cardsPastStartDate) {
-			card.setIdList(firstList.getId());
-			card.setPos(0);
-			card.update();
+
+		if (!cardsPastStartDate.isEmpty()) {
+			logger.log("Reopening %s cards past their start date:", cardsPastStartDate.size());
+
+			for (Card card : cardsPastStartDate) {
+				logger.log("\t%s (start date: %s)",
+						card.getName(),
+						Helpers.PrettyFormat(Helpers.getCardStartDateTime(card)));
+
+				card.setIdList(firstList.getId());
+				card.setPos(0);
+				card.update();
+			}
 		}
 	}
 
@@ -106,6 +132,8 @@ public class TrelloelloApplication implements CommandLineRunner {
 		List<Card> archivedLabelledCards = board.fetchFilteredCards(CardState.CLOSED).stream()
 				.filter(c -> c.getLabels().stream()
 						.anyMatch(label -> label.getName().equals(LABEL_NAME))).toList();
+
+		boolean foundRepeatingCard = false;
 
 		for (Card card : archivedLabelledCards) {
 			//The string we're looking for is an ISO 8601 duration, followed by a time, e.g:
@@ -117,6 +145,16 @@ public class TrelloelloApplication implements CommandLineRunner {
 			Pattern pattern = Pattern.compile(regexPattern);
 			Matcher matcher = pattern.matcher(card.getDesc());
 			if (matcher.find()) { //If we find a match, the card is meant to be repeating
+				if (!foundRepeatingCard)
+				{
+					foundRepeatingCard = true;
+
+					//Output stage log entry once we know we have at least one repeating card to process
+					logger.log("Unarchiving and holding repeating cards:");
+				}
+
+				logger.log("\t%s", card.getName());
+
 				LocalDateTime nextStartDateTime;
 
 				String durationString = matcher.group(1);
@@ -150,7 +188,7 @@ public class TrelloelloApplication implements CommandLineRunner {
 				if (startTime != null) {
 					nextStartDateTime = nextStartDateTime.with(startTime);
 				}
-				System.out.printf("Unarchived card %s. New start = %s from %s%n", card.getName(), nextStartDateTime, matcher.group());
+				logger.log("\t\tNew start = %s from %s%n", nextStartDateTime, matcher.group());
 			}
 		}
 	}
@@ -163,18 +201,29 @@ public class TrelloelloApplication implements CommandLineRunner {
 						&& !Helpers.pastCardStartDate(card)
 				).toList();
 
-		for (Card card : cardsWithStartDateInFuture) {
-			card.setIdList(holdingList.getId()); //Move to Holding List
+		if (!cardsWithStartDateInFuture.isEmpty()) {
+			logger.log("Holding %s cards with start date in the future", cardsWithStartDateInFuture.size());
 
-			//Could use addLabels here but that makes a separate call to the API
-			List<Label> labels = card.getLabels();
-			if (!labels.contains(label)) {
-				labels.add(label);
-				card.setLabels(labels);
+			for (Card card : cardsWithStartDateInFuture) {
+				logger.log("\t%s (start date: %s)",
+						card.getName(),
+						Helpers.PrettyFormat(Helpers.getCardStartDateTime(card)));
+
+				card.setIdList(holdingList.getId()); //Move to Holding List
+
+				//Could use addLabels here but that makes a separate call to the API
+				List<Label> labels = card.getLabels();
+				if (!labels.contains(label)) {
+					labels.add(label);
+					card.setLabels(labels);
+				}
+
+				card.update();
 			}
-
-			card.update();
-			//card.addLabels(label.getId()); //Note, need to check label isn't already on it first
 		}
+	}
+
+	public interface MyLogger {
+		void log(String message, Object... args);
 	}
 }

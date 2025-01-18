@@ -3,7 +3,11 @@ package thantz.trelloello;
 import com.julienvey.trello.domain.Card;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
+import java.time.temporal.Temporal;
 import java.util.Date;
+import java.util.Locale;
 
 public class Helpers {
     public static Date localDateTimeToDate(LocalDateTime localDateTime) {
@@ -20,8 +24,13 @@ public class Helpers {
 
     public static boolean pastCardStartDate(Card card)
     {
+        LocalDateTime startDateTime = getCardStartDateTime(card);
+        return startDateTime == null || LocalDateTime.now().isAfter(startDateTime);
+    }
+
+    public static LocalDateTime getCardStartDateTime(Card card) {
         if (card.getStart() == null) {
-            return true;
+            return null;
         } else {
             //Trello doesn't officially support start TIMES, only dates. Cards' start dates seem to
             //include a time, though we can't be sure what that time will be. Therefore, strip out
@@ -34,9 +43,20 @@ public class Helpers {
                 time = LocalTime.MIN;
             }
 
-            LocalDateTime startDateTime = startDate.atTime(time);
-
-            return LocalDateTime.now().isAfter(startDateTime);
+            return startDate.atTime(time);
         }
+    }
+
+    public static String Now() {
+        return PrettyFormat(Instant.now());
+    }
+
+    public static String PrettyFormat(Temporal temporal) {
+        DateTimeFormatter formatter =
+                DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
+                        .withLocale(Locale.UK)
+                        .withZone(ZoneId.systemDefault());
+
+        return formatter.format(temporal);
     }
 }
