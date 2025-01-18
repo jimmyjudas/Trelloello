@@ -56,6 +56,10 @@ public class TrelloelloApplication implements CommandLineRunner {
 
 		Board board = trelloApi.getBoard(BOARD_ID);
 
+		List<Label> labels = board.fetchLabels();
+		Label label = labels.stream().filter(l -> l.getName().equals(LABEL_NAME)).findFirst()
+				.orElseThrow(Exception::new);
+
 		List<TList> lists = board.fetchLists();
 		TList holdingList = lists.stream().filter(l -> l.getName().equals(HOLDING_LIST_NAME)).findFirst()
 				.orElseThrow(Exception::new);
@@ -64,6 +68,7 @@ public class TrelloelloApplication implements CommandLineRunner {
 
 		holdArchivedRepeatingCards(board, holdingList);
 
+		holdCardsWithStartDateInFuture(board, holdingList, label);
 	}
 
 	/// Find cards in the holding column that are past their start date and move them
@@ -98,7 +103,7 @@ public class TrelloelloApplication implements CommandLineRunner {
 
 			Pattern pattern = Pattern.compile(regexPattern);
 			Matcher matcher = pattern.matcher(card.getDesc());
-			if (matcher.find()) {
+			if (matcher.find()) { //If we find a match, the card is meant to be recurring
 				LocalDateTime nextStartDateTime;
 
 				String durationString = matcher.group(1);
@@ -132,11 +137,32 @@ public class TrelloelloApplication implements CommandLineRunner {
 					nextStartDateTime = nextStartDateTime.with(startTime);
 				}
 				System.out.printf("Unarchived card %s. New start = %s from %s%n", card.getName(), nextStartDateTime, matcher.group());
-			} else {
-				throw new Exception(String.format("Duration regex not found for card %s", card.getName()));
 			}
 
 			card.update();
+		}
+	}
+
+	/// Find cards which have had their start date set to sometime in the future, and move
+	/// them to the holding column
+	private void holdCardsWithStartDateInFuture(Board board, TList holdingList, Label label) {
+		List<Card> cardsWithStartDateInFuture = board.fetchCards().stream()
+				.filter(card -> !card.getIdList().equals(holdingList.getId())
+						&& !Helpers.pastCardStartDate(card)
+				).toList();
+
+		for (Card card : cardsWithStartDateInFuture) {
+			card.setIdList(holdingList.getId()); //Move to Holding List
+
+			//Could use addLabels here but that makes a separate call to the API
+			List<Label> labels = card.getLabels();
+			if (!labels.contains(label)) {
+				labels.add(label);
+				card.setLabels(labels);
+			}
+
+			card.update();
+			//card.addLabels(label.getId()); //Note, need to check label isn't already on it first
 		}
 	}
 }
