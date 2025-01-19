@@ -16,6 +16,8 @@ Trelloello looks for archived cards that are labelled with a specific label and 
 
 The advantage of these cards being unarchived in a separate list while they're waiting to be "reopened" is that you can make changes to them at any point, for example, if you want to add a checklist item or update the description.
 
+To stop using a repeating card, either delete the repetition schedule from the card's description or remove the label, before archiving the card as usual.
+
 #### Snoozing Cards
 
 To snooze a card, set its Start Date (see limitation [below](#a-note-on-start-dates)) to a date in the future. The next time Trelloello runs, it will find any cards with a future start date, move them to a specific "holding" list and add a specific label to them. The program will then, on a future run, detect when we are past a card's start date, and "reopen" the card by moving it to the top of the left-most list on the board.
