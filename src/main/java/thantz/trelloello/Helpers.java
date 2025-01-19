@@ -47,10 +47,6 @@ public class Helpers {
         }
     }
 
-    public static String Now() {
-        return PrettyFormat(Instant.now());
-    }
-
     public static String PrettyFormat(Temporal temporal) {
         DateTimeFormatter formatter =
                 DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)

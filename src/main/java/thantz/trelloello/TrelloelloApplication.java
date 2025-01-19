@@ -7,8 +7,6 @@ import com.julienvey.trello.domain.*;
 import com.julienvey.trello.impl.TrelloImpl;
 import com.julienvey.trello.impl.domaininternal.CardState;
 import com.julienvey.trello.impl.http.ApacheHttpClient;
-import net.time4j.Duration;
-import net.time4j.IsoUnit;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -17,8 +15,6 @@ import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @SpringBootApplication
 public class TrelloelloApplication implements CommandLineRunner {
@@ -136,15 +132,8 @@ public class TrelloelloApplication implements CommandLineRunner {
 		boolean foundRepeatingCard = false;
 
 		for (Card card : archivedLabelledCards) {
-			//The string we're looking for is an ISO 8601 duration, followed by a time, e.g:
-			//	{P3D 18:00}
-			//	{P1WT1M 5:21}
-			//	{P1Y}
-			String regexPattern = "\\{(P\\S{2,})(?:\\s(\\d{1,2}:\\d{2}))?}";
-
-			Pattern pattern = Pattern.compile(regexPattern);
-			Matcher matcher = pattern.matcher(card.getDesc());
-			if (matcher.find()) { //If we find a match, the card is meant to be repeating
+			RepetitionSchedule repetitionSchedule = RepetitionSchedule.fromCardDescription(card.getDesc());
+			if (repetitionSchedule != null) {
 				if (!foundRepeatingCard)
 				{
 					foundRepeatingCard = true;
@@ -155,40 +144,20 @@ public class TrelloelloApplication implements CommandLineRunner {
 
 				logger.log("\t%s", card.getName());
 
-				LocalDateTime nextStartDateTime;
+				LocalDateTime nextStartDateTime = LocalDateTime.now().plus(repetitionSchedule.getDuration().toTemporalAmount()).with(LocalTime.MIN);
 
-				String durationString = matcher.group(1);
-				Duration<IsoUnit> duration;
-				try {
-					duration = Duration.parsePeriod(durationString);
-				}
-				catch (Exception e) {
-					throw new RuntimeException(String.format("Can't parse duration %s for card %s", durationString, card.getName()));
-				}
+				//Trello has no concept of start time, so store it in the title
+				card.setName(CardNameWithTime.getNewName(card.getName(), repetitionSchedule.getStartTime()));
 
-				nextStartDateTime = LocalDateTime.now().plus(duration.toTemporalAmount()).with(LocalTime.MIN);
-
-				LocalTime startTime = null;
-				String timeString = matcher.group(2);
-				if (timeString != null) { //We have a time portion as well
-					try {
-						startTime = LocalTime.parse(timeString);
-					}
-					catch (Exception e) {
-						throw new RuntimeException(String.format("Can't parse time %s for card %s", timeString, card.getName()));
-					}
-				}
-
-				card.setName(CardNameWithTime.getNewName(card.getName(), startTime)); //Trello has no concept of start time, so store it in the title
 				card.setClosed(false); //Unarchive
 				card.setIdList(holdingList.getId()); //Move to Holding List
 				card.setStart(Helpers.localDateTimeToDate(nextStartDateTime));
 				card.update();
 
-				if (startTime != null) {
-					nextStartDateTime = nextStartDateTime.with(startTime);
+				if (repetitionSchedule.getStartTime() != null) {
+					nextStartDateTime = nextStartDateTime.with(repetitionSchedule.getStartTime());
 				}
-				logger.log("\t\tNew start = %s from %s%n", nextStartDateTime, matcher.group());
+				logger.log("\t\tNew start = %s from %s%n", nextStartDateTime, repetitionSchedule.getSourceText());
 			}
 		}
 	}

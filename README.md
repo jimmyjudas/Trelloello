@@ -80,8 +80,9 @@ Trelloello expects repetition schedules to use the [ISO 8601 duration](https://e
 * e.g:
   * `{P1M}` = 1 month
   * `{P2W}` = 2 weeks
-  * `{P1Y6M}` = 1 year and 6 months
+  * `{P3W2D}` = 3 weeks and 2 days
+  * `{P1Y6M}` = 1 year and 6 months (which can also be represented as `{P18M}`)
   * `{PT10M}` = 10 minutes
-  * `{P1DT12H}` = 1 day and 12 hours
+  * `{P1DT12H}` = 1 day and 12 hours (which can also be represented as `{PT36H}`)
 * For durations that only include days, weeks, etc. (i.e. no time components) the duration string can then be followed by an optional 24-hour time string. If present, once the duration string determines the day on which the card will be reopened, the time string then determines what time on that day it’ll actually happen. This is useful if you only want to be reminded to do something in the evening, for example. 
   * e.g. `{P5D 18:00}` = in 5 days' time at 6pm
