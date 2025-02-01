@@ -52,7 +52,7 @@ Before you can run Trelloello, there are some config fields at the top of `Trell
 
 ## Building the Project locally
 
-This project currently relies on changes to the [trello-java-wrapper](https://github.com/jimmyjudas/trello-java-wrapper) project that are not yet published, so this branch relies on there being a local clone of that repo in a folder next to the Trelloello folder. At some point my plan is to merge the various changes into [this fork](https://github.com/proteus1121/trello-java-wrapper) so a new package version can be published from there, at which point I can update Trelloello to just include that package rather than a local copy.
+This project currently relies on changes to the [trello-java-wrapper](https://github.com/dot3dash4dot/trello-java-wrapper) project that are not yet published, so this branch relies on there being a local clone of that repo in a folder next to the Trelloello folder. At some point my plan is to merge the various changes into [this fork](https://github.com/proteus1121/trello-java-wrapper) so a new package version can be published from there, at which point I can update Trelloello to just include that package rather than a local copy.
 
 Building using IntelliJ will automatically include the local copy of the `trello-java-wrapper` as the project is set up as a composite build.
 
